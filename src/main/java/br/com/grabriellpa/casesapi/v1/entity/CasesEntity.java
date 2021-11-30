@@ -1,15 +1,12 @@
-package br.com.grabriellpa.casesapi.v1.model;
+package br.com.grabriellpa.casesapi.v1.entity;
 
 import lombok.*;
 
 import javax.persistence.*;
 
 @Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
 @Entity
-public class Cases {
+public class CasesEntity {
 
     @Id
     @SequenceGenerator(

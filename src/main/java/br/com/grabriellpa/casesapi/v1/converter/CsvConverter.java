@@ -15,7 +15,6 @@ import java.util.List;
 public class CsvConverter {
 
     public List<Row> stringToObject(String content) throws CsvValidationException, IOException {
-        // TODO: Adicionar como builder?
         CsvToBeanBuilder<Row> beanBuilder = new CsvToBeanBuilder<>(new InputStreamReader(new ReaderInputStream(new StringReader(content))));
         return beanBuilder.withType(Row.class).build().parse();
 

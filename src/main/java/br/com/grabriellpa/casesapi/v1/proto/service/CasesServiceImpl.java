@@ -16,6 +16,12 @@ public class CasesServiceImpl extends CasesServiceGrpc.CasesServiceImplBase {
 
     private final CasesService casesService;
 
+    /**
+     * Inicia a coleta de dados
+     *
+     * @param request Request recebida de um client
+     * @param responseObserver Recebe/envia eventos.
+     */
     @Override
     public void collectCasesData(request request, StreamObserver<Empty> responseObserver) {
         casesService.getData(CasesEnum.valueOf(request.getCasesType().name()));

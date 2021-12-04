@@ -19,6 +19,12 @@ public class RowConverter {
                 .using(new CasesMapValueToObject()).map(Row::getCasesPerDay, CasesOccurrenceEntity::setCasesPerDay));
     }
 
+    /**
+     * Converte Rows para List de ocorrência de casos
+     *
+     * @param rows objeto com todas as linhas do csv
+     * @return lista contendo entity de ocorrência de casos
+     */
     public List<CasesOccurrenceEntity> toCasesOccurrenceEntities(List<Row> rows) {
         return modelMapper.map(rows, new TypeToken<List<CasesOccurrenceEntity>>() {
         }.getType());

@@ -9,6 +9,7 @@ import br.com.grabriellpa.casesapi.v1.enums.CasesEnum;
 import br.com.grabriellpa.casesapi.v1.repository.CasesOccurrenceRepository;
 import br.com.grabriellpa.casesapi.v1.repository.CasesUpdateRepository;
 import com.opencsv.exceptions.CsvValidationException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,18 +24,14 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class CasesService {
 
-    @Autowired
-    private CoronaVirusGitHubCSSEGIClient client;
-    @Autowired
-    private CsvConverter csvConverter;
-    @Autowired
-    private RowConverter rowConverter;
-    @Autowired
-    private CasesOccurrenceRepository casesOccurrenceRepository;
-    @Autowired
-    private CasesUpdateRepository casesUpdateRepository;
+    private final CoronaVirusGitHubCSSEGIClient client;
+    private final CsvConverter csvConverter;
+    private final RowConverter rowConverter;
+    private final CasesOccurrenceRepository casesOccurrenceRepository;
+    private final CasesUpdateRepository casesUpdateRepository;
 
     private final DateTimeFormatter ALL_POSSIBLE_DATE_FORMAT = new DateTimeFormatterBuilder()
             .appendOptional(DateTimeFormatter.ofPattern("MM/dd/yy"))
@@ -43,8 +40,6 @@ public class CasesService {
             .appendOptional(DateTimeFormatter.ofPattern(("M/d/yy")))
             .toFormatter();
 
-
-    // TODO: refatorar código macarrão
     public void getData(CasesEnum casesType) {
         getDatas(casesType, false);
     }
@@ -54,11 +49,18 @@ public class CasesService {
         getDatas(casesType, force);
     }
 
+    /**
+     * Processo para extrair casos de covid dependendo do tipo (Death, Confirmed, Recovered)
+     * É realizado tratamento para evitar pegar duplicados no mesmo dia.
+     *
+     * @param casesType Tipo do caso
+     * @param force Se deve executar mesmo se já foi realizado
+     */
+    // TODO: refatorar código macarrão
     private void getDatas(CasesEnum casesType, boolean force) {
         try {
             switch (casesType) {
                 case CONFIRMED:
-                    log.debug("INIT CONFIRMED");
                     var confirmedDelta = casesUpdateRepository.getByType(CasesEnum.CONFIRMED);
                     createUpdateDelta(confirmedDelta, CasesEnum.CONFIRMED);
                     if (Objects.nonNull(confirmedDelta) && confirmedDelta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
@@ -75,7 +77,6 @@ public class CasesService {
                     log.debug("[CONFIRMEDS] {}", confirmeds.size());
                     break;
                 case RECOVERED:
-                    log.debug("INIT RECOVERED");
                     var recoveredDelta = casesUpdateRepository.getByType(CasesEnum.RECOVERED);
                     createUpdateDelta(recoveredDelta, CasesEnum.RECOVERED);
                     if (Objects.nonNull(recoveredDelta) && recoveredDelta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
@@ -92,7 +93,6 @@ public class CasesService {
                     log.debug("[RECOVEREDS] {}", recovereds.size());
                     break;
                 case DEATHS:
-                    log.debug("INIT DEATHS");
                     var deathDelta = casesUpdateRepository.getByType(CasesEnum.DEATHS);
                     createUpdateDelta(deathDelta, CasesEnum.DEATHS);
                     if (Objects.nonNull(deathDelta) && deathDelta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
@@ -115,12 +115,23 @@ public class CasesService {
         }
     }
 
+    /**
+     * Salva casos no banco
+     *
+     * @param casesData List de ocorrências de casos
+     */
     private void updateCases(List<CasesOccurrenceEntity> casesData) {
         if (!casesData.isEmpty()) {
             casesOccurrenceRepository.saveAll(casesData);
         }
     }
 
+    /**
+     * Cria ou realiza o update da data de ultima atualização
+     *
+     * @param delta Data da ultima atualização, sem ser a que está sendo executada
+     * @param type Tipo de Case
+     */
     private void createUpdateDelta(CasesUpdateEntity delta, CasesEnum type) {
         if (Objects.isNull(delta)) {
             var newDelta = new CasesUpdateEntity();
@@ -133,6 +144,15 @@ public class CasesService {
         }
     }
 
+    /**
+     * Regra para validar se deve ou não ser adicionado na lista de ocorrências
+     * como não é possivel filtrar por data ao coletar a data, é realizado um filtro
+     * para envitar salvar casos duplicados no banco
+     *
+     * @param caseDate Data da ocorrência de caso
+     * @param casesUpdateEntity Data da ultima atualização
+     * @return um boolean indicando se deve ou não adicionar na lista de ocorrências para ser salvo no banco.
+     */
     private boolean toAdd(String caseDate, CasesUpdateEntity casesUpdateEntity) {
         if (Objects.isNull(casesUpdateEntity)) {
             return true;

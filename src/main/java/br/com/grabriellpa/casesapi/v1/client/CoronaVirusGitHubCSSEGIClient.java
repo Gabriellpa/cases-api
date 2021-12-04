@@ -8,12 +8,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 public interface CoronaVirusGitHubCSSEGIClient {
 
     @GetMapping("/time_series_covid19_confirmed_global.csv")
-    public String getConfirmed();
+    String getConfirmed();
 
     @GetMapping("/time_series_covid19_deaths_global.csv")
-    public String getDeaths();
+    String getDeaths();
 
     @GetMapping("/time_series_covid19_recovered_global.csv")
-    public String getRecovered();
+    String getRecovered();
 
 }

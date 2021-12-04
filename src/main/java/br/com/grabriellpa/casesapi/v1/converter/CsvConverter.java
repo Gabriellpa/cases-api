@@ -14,6 +14,14 @@ import java.util.List;
 @Component
 public class CsvConverter {
 
+    /**
+     * Gera um csv a partir de uma String e converte para um List<Row>
+     *
+     * @param content String no formato csv especifico que será convertida
+     * @return Um List<Row>, que representa cada linha do CSV
+     * @throws CsvValidationException Csv Exception
+     * @throws IOException I/O exception
+     */
     public List<Row> stringToObject(String content) throws CsvValidationException, IOException {
         CsvToBeanBuilder<Row> beanBuilder = new CsvToBeanBuilder<>(new InputStreamReader(new ReaderInputStream(new StringReader(content))));
         return beanBuilder.withType(Row.class).build().parse();

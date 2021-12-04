@@ -26,7 +26,7 @@ ext {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.cloud:spring-cloud-starter-bootstrap:3.0.3'
+    implementation 'org.springframework.cloud:spring-cloud-starter-bootstrap'
     implementation 'org.springframework:spring-context'
     runtimeOnly 'org.aspectj:aspectjweaver:1.9.2'
 
@@ -39,8 +39,6 @@ dependencies {
     implementation "org.springframework.cloud:spring-cloud-starter-openfeign:3.0.3"
     implementation 'com.opencsv:opencsv:5.5'
     implementation 'org.modelmapper:modelmapper:2.4.4'
-
-    implementation 'org.springframework:spring-aspects:5.3.12'
 
     // GRPC
     implementation 'net.devh:grpc-server-spring-boot-starter:2.12.0.RELEASE'
@@ -80,10 +78,12 @@ test {
     useJUnitPlatform()
 }
 
+/**
+ *  Configuração para considerar o diretório GRPC, gerado automaticamente, como source code
+ *  sendo necessário só rodar a task para gerar o código no diretório configurado
+ */
 sourceSets {
     grpc {
-//        compileClasspath += sourceSets.main.output
-//        runtimeClasspath += sourceSets.main.output
         java {
             srcDir 'src/grpc/main/grpc'
             srcDir 'src/grpc/main/java'

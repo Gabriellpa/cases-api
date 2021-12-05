@@ -3,6 +3,7 @@ plugins {
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
     id 'com.google.protobuf' version "0.8.14"
+    id "com.google.cloud.tools.jib" version "3.1.4"
 
 }
 
@@ -98,4 +99,20 @@ sourceSets {
 configurations {
     grpcImplementation.extendsFrom implementation
     grpcRuntimeOnly.extendsFrom runtimeOnly
+}
+
+
+jib {
+    from {
+        image = "openjdk:11.0.13"
+    }
+    to {
+        image = "gabriellpa/cases-api"
+    }
+    container {
+        jvmFlags = ['-Xms512m', '-Xdebug']
+        mainClass = 'br.com.grabriellpa.casesapi.CasesApiApplication'
+        args = []
+        ports = ['8080/tcp']
+    }
 }

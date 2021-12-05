@@ -1,7 +1,7 @@
 spring:
   datasource:
     password: 'mysecretpassword'
-    url: jdbc:postgresql://localhost:5432/cases
+    url: jdbc:postgresql://postgres:5432/cases
     username: 'postgres'
   jpa:
     hibernate:

@@ -24,7 +24,7 @@ public class CasesServiceImpl extends CasesServiceGrpc.CasesServiceImplBase {
      */
     @Override
     public void collectCasesData(request request, StreamObserver<Empty> responseObserver) {
-        casesService.getData(CasesEnum.valueOf(request.getCasesType().name()));
+        casesService.processData(CasesEnum.valueOf(request.getCasesType().name()));
         responseObserver.onNext(Empty.newBuilder().build());
         responseObserver.onCompleted();
     }

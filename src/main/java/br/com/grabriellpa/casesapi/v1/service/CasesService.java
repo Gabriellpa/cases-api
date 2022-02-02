@@ -6,6 +6,7 @@ import br.com.grabriellpa.casesapi.v1.converter.RowConverter;
 import br.com.grabriellpa.casesapi.v1.entity.CasesOccurrenceEntity;
 import br.com.grabriellpa.casesapi.v1.entity.CasesUpdateEntity;
 import br.com.grabriellpa.casesapi.v1.enums.CasesEnum;
+import br.com.grabriellpa.casesapi.v1.exception.DeltaTimeException;
 import br.com.grabriellpa.casesapi.v1.repository.CasesOccurrenceRepository;
 import br.com.grabriellpa.casesapi.v1.repository.CasesUpdateRepository;
 import com.opencsv.exceptions.CsvValidationException;
@@ -40,78 +41,71 @@ public class CasesService {
             .appendOptional(DateTimeFormatter.ofPattern(("M/d/yy")))
             .toFormatter();
 
-    public void getData(CasesEnum casesType) {
-        getDatas(casesType, false);
+    public void processData(CasesEnum casesType) {
+        processDataByType(casesType, false);
     }
 
     // MANUAL
-    public void getData(CasesEnum casesType, boolean force) {
-        getDatas(casesType, force);
+    public void processDataTrigger(CasesEnum casesType, boolean force) {
+        processDataByType(casesType, force);
     }
 
     /**
      * Processo para extrair casos de covid dependendo do tipo (Death, Confirmed, Recovered)
      * É realizado tratamento para evitar pegar duplicados no mesmo dia.
      *
-     * @param casesType Tipo do caso
+     * @param type  Tipo do caso
      * @param force Se deve executar mesmo se já foi realizado
      */
-    // TODO: refatorar código macarrão
-    private void getDatas(CasesEnum casesType, boolean force) {
+    private void processDataByType(CasesEnum type, boolean force) {
         try {
-            switch (casesType) {
-                case CONFIRMED:
-                    var confirmedDelta = casesUpdateRepository.getByType(CasesEnum.CONFIRMED);
-                    createUpdateDelta(confirmedDelta, CasesEnum.CONFIRMED);
-                    if (Objects.nonNull(confirmedDelta) && confirmedDelta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
-                        log.debug("[DONE OR IN PROGRESS] CONFIRMED");
-                        break;
-                    }
-                    var confirmeds = rowConverter.toCasesOccurrenceEntities(csvConverter.stringToObject(client.getConfirmed()));
-                    confirmeds.forEach(casesOccurrenceEntity -> {
-                        casesOccurrenceEntity.setType(CasesEnum.CONFIRMED.name());
-                        casesOccurrenceEntity.setCasesPerDay(casesOccurrenceEntity.getCasesPerDay().stream().filter(item -> toAdd(item.getDate(), confirmedDelta)).collect(Collectors.toList()));
-                    });
-                    confirmeds = confirmeds.stream().filter(item -> !item.getCasesPerDay().isEmpty()).collect(Collectors.toList());
-                    updateCases(confirmeds);
-                    log.debug("[CONFIRMEDS] {}", confirmeds.size());
-                    break;
-                case RECOVERED:
-                    var recoveredDelta = casesUpdateRepository.getByType(CasesEnum.RECOVERED);
-                    createUpdateDelta(recoveredDelta, CasesEnum.RECOVERED);
-                    if (Objects.nonNull(recoveredDelta) && recoveredDelta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
-                        log.debug("[DONE OR IN PROGRESS] RECOVERED");
-                        break;
-                    }
-                    var recovereds = rowConverter.toCasesOccurrenceEntities(csvConverter.stringToObject(client.getRecovered()));
-                    recovereds.forEach(casesOccurrenceEntity -> {
-                        casesOccurrenceEntity.setType(CasesEnum.RECOVERED.name());
-                        casesOccurrenceEntity.setCasesPerDay(casesOccurrenceEntity.getCasesPerDay().stream().filter(item -> toAdd(item.getDate(), recoveredDelta)).collect(Collectors.toList()));
-                    });
-                    recovereds = recovereds.stream().filter(item -> !item.getCasesPerDay().isEmpty()).collect(Collectors.toList());
-                    updateCases(recovereds);
-                    log.debug("[RECOVEREDS] {}", recovereds.size());
-                    break;
-                case DEATHS:
-                    var deathDelta = casesUpdateRepository.getByType(CasesEnum.DEATHS);
-                    createUpdateDelta(deathDelta, CasesEnum.DEATHS);
-                    if (Objects.nonNull(deathDelta) && deathDelta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
-                        log.debug("[DONE OR IN PROGRESS] DEATHS");
-                        break;
-                    }
-                    var deceases = rowConverter.toCasesOccurrenceEntities(csvConverter.stringToObject(client.getDeaths()));
-                    deceases.forEach(casesOccurrenceEntity -> {
-                        casesOccurrenceEntity.setType(CasesEnum.DEATHS.name());
-                        casesOccurrenceEntity.setCasesPerDay(casesOccurrenceEntity.getCasesPerDay().stream().filter(item -> toAdd(item.getDate(), deathDelta)).collect(Collectors.toList()));
-                    });
-                    deceases = deceases.stream().filter(item -> !item.getCasesPerDay().isEmpty()).collect(Collectors.toList());
-                    updateCases(deceases);
-                    log.debug("[DECEASES] {}", deceases.size());
-                    break;
+            var delta = casesUpdateRepository.getByType(type);
+            createUpdateDelta(delta, type);
+            validDeltaTime(delta, force, type);
+            var cases = fetchAndTransformData(type, delta);
+            updateCases(cases);
+            log.debug("[{}}] {}", type.name(), cases.size());
+        } catch (DeltaTimeException e) {
+            if (force) {
+                throw e;
             }
+        }
+    }
+
+    /**
+     * TODO
+     * @param type
+     * @param delta
+     * @return
+     */
+    private List<CasesOccurrenceEntity> fetchAndTransformData(CasesEnum type, CasesUpdateEntity delta) {
+        try {
+            var cases = rowConverter.toCasesOccurrenceEntities(csvConverter.stringToObject(client.getDataByType(type.getPath())));
+
+            cases.forEach(casesOccurrenceEntity -> {
+                casesOccurrenceEntity.setType(CasesEnum.CONFIRMED.name());
+                casesOccurrenceEntity.setCasesPerDay(casesOccurrenceEntity.getCasesPerDay()
+                        .stream()
+                        .filter(item -> toAdd(item.getDate(), delta))
+                        .collect(Collectors.toList()));
+            });
+            return cases.stream().filter(item -> !item.getCasesPerDay().isEmpty()).collect(Collectors.toList());
         } catch (CsvValidationException | IOException e) {
-            log.error(e.getMessage());
-            throw new RuntimeException(e);
+            e.printStackTrace();
+            throw new RuntimeException("INTERNAL ERROR");
+        }
+    }
+
+    /**
+     * TODO
+     * @param delta
+     * @param force
+     * @param type
+     */
+    private void validDeltaTime(CasesUpdateEntity delta, boolean force, CasesEnum type) {
+        if (Objects.nonNull(delta) && delta.getLastUpdate().isEqual(LocalDate.now()) && !force) {
+            log.debug("[DONE OR IN PROGRESS] {}", type.name());
+            throw new DeltaTimeException("[DONE OR IN PROGRESS] {}" + type.name());
         }
     }
 
@@ -130,7 +124,7 @@ public class CasesService {
      * Cria ou realiza o update da data de ultima atualização
      *
      * @param delta Data da ultima atualização, sem ser a que está sendo executada
-     * @param type Tipo de Case
+     * @param type  Tipo de Case
      */
     private void createUpdateDelta(CasesUpdateEntity delta, CasesEnum type) {
         if (Objects.isNull(delta)) {
@@ -149,7 +143,7 @@ public class CasesService {
      * como não é possivel filtrar por data ao coletar a data, é realizado um filtro
      * para envitar salvar casos duplicados no banco
      *
-     * @param caseDate Data da ocorrência de caso
+     * @param caseDate          Data da ocorrência de caso
      * @param casesUpdateEntity Data da ultima atualização
      * @return um boolean indicando se deve ou não adicionar na lista de ocorrências para ser salvo no banco.
      */
